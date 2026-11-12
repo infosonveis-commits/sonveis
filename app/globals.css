@@ -1,0 +1,8 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+html { background: #ffffff; color: #111827; }
+body { -webkit-font-smoothing: antialiased; }
+:focus-visible { outline: 3px solid #2F5BEA; outline-offset: 3px; border-radius: 20px; }
+@media (prefers-reduced-motion: reduce) { * { transition: none !important; animation: none !important; } }
