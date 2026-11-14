@@ -91,8 +91,9 @@ export default function Dashboard() {
                 </article>
               ))}
             </div>
+            <p className="mt-6 text-sm text-ink/60">Это черновик. ИИ мог придумать детали, которых у тебя нет. Проверь текст и замени их своими.</p>
             <button onClick={() => press(result.req)} disabled={loading || a.left <= 0}
-              className="mt-6 h-16 w-full rounded-[20px] bg-blue text-lg font-semibold text-white transition enabled:hover:brightness-110 disabled:opacity-40">
+              className="mt-4 h-16 w-full rounded-[20px] bg-blue text-lg font-semibold text-white transition enabled:hover:brightness-110 disabled:opacity-40">
               {loading ? "Пишем..." : "Переделать"}
             </button>
             <p className="mt-3 text-sm text-ink/50">Каждая генерация списывается из бесплатных.</p>
