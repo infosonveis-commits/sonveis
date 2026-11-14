@@ -9,7 +9,7 @@ import { scriptPrompt } from "@/lib/prompts/script";
 import { threadsPrompt } from "@/lib/prompts/threads";
 import { winbackPrompt } from "@/lib/prompts/winback";
 
-export const maxDuration = 30;
+export const maxDuration = 60;
 const FREE_LIMIT = 3;
 
 const json = (body: object, status = 200) => NextResponse.json(body, { status });
@@ -21,11 +21,11 @@ const KEY = process.env.AI_API_KEY || process.env.DEEPSEEK_API_KEY;
 
 // split: делить ответ на части по ---, max: сколько частей оставить, tokens: лимит ответа
 const KINDS: Record<string, { split: boolean; max: number; tokens: number }> = {
-  post: { split: true, max: 3, tokens: 1200 },
-  idea: { split: false, max: 1, tokens: 700 },
-  script: { split: false, max: 1, tokens: 900 },
-  threads: { split: true, max: 6, tokens: 1400 },
-  winback: { split: true, max: 3, tokens: 900 },
+  post: { split: true, max: 3, tokens: 2500 },
+  idea: { split: false, max: 1, tokens: 1500 },
+  script: { split: false, max: 1, tokens: 2000 },
+  threads: { split: true, max: 6, tokens: 2500 },
+  winback: { split: true, max: 3, tokens: 1500 },
 };
 
 export async function POST(req: Request) {
@@ -63,21 +63,28 @@ export async function POST(req: Request) {
       : kind === "threads" ? threadsPrompt(p)
       : winbackPrompt(p);
 
-    const r = await fetch(`${BASE}/chat/completions`, {
+    // Просим модель не "размышлять" (иначе размышления съедают лимит и ответ обрывается).
+    // Если провайдер не знает этих параметров (ошибка 400/422), повторяем без них.
+    const ask = (hints: boolean) => fetch(`${BASE}/chat/completions`, {
       method: "POST",
       headers: { "Content-Type": "application/json", Authorization: `Bearer ${KEY}` },
       body: JSON.stringify({
         model: MODEL,
-        ...(BASE.includes("api.deepseek.com") ? { thinking: { type: "disabled" } } : {}),
+        ...(hints ? { thinking: { type: "disabled" }, reasoning_effort: "none" } : {}),
         max_tokens: cfg.tokens,
         temperature: 0.9,
         messages: [{ role: "system", content: system }, { role: "user", content: prompt }],
       }),
-      signal: AbortSignal.timeout(25000),
+      signal: AbortSignal.timeout(50000),
     });
+    let r = await ask(true);
+    if (r.status === 400 || r.status === 422) r = await ask(false);
     if (!r.ok) throw new Error(`AI ${r.status} ${(await r.text().catch(() => "")).slice(0, 300)}`);
     const j = await r.json();
-    const text: string = (j.choices?.[0]?.message?.content || "").trim().replace(/[—–]/g, "-");
+    const choice = j.choices?.[0];
+    console.log("AI ok:", choice?.finish_reason, JSON.stringify(j.usage));
+    if (choice?.finish_reason === "length") throw new Error("cut: ответ обрезан по лимиту");
+    const text: string = (choice?.message?.content || "").trim().replace(/[—–]/g, "-");
     if (!text) throw new Error("empty");
     const variants = cfg.split
       ? text.split(/\n\s*-{3,}\s*\n/).map((s) => s.trim()).filter(Boolean).slice(0, cfg.max)

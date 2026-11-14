@@ -40,9 +40,11 @@ export default function Dashboard() {
   async function generate(req: Req) {
     setNote(""); setLoading(true); setCopied(-1);
     try {
-      const r = await fetch("/api/generate", {
+      const call = () => fetch("/api/generate", {
         method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(req),
       });
+      let r = await call();
+      if (r.status === 502) r = await call(); // сбой ИИ: одна автоматическая повторная попытка (генерация возвращается)
       const j = await r.json().catch(() => ({}));
       if (r.ok) { setResult({ req, variants: j.variants }); a.setLeft(j.left); }
       else if (r.status === 401) setShowAuth(true);
@@ -116,7 +118,7 @@ export default function Dashboard() {
                 </button>
               ))}
             </div>
-            {loading && <p className="mt-6 text-ink/60" role="status">Пишем текст, это займёт до 20 секунд.</p>}
+            {loading && <p className="mt-6 text-ink/60" role="status">Пишем текст, это может занять до 30 секунд.</p>}
             {!loading && note && <p className="mt-6 text-ink/60" role="status">{note}</p>}
           </>
         )}
