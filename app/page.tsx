@@ -1,4 +1,4 @@
-import Link from "next/link";
+import StartButton from "@/components/StartButton";
 import Logo from "@/components/Logo";
 import Footer from "@/components/Footer";
 
@@ -19,10 +19,7 @@ export default function Home() {
         <p className="mt-6 max-w-xl text-lg text-ink/70">
           Ответь на 5 коротких вопросов. Получай тексты, которые звучат как ты, а не как робот.
         </p>
-        <Link href="/start"
-          className="mt-10 inline-flex h-16 items-center rounded-[20px] bg-blue px-10 text-lg font-semibold text-white transition hover:brightness-110 active:scale-[0.98]">
-          Начать
-        </Link>
+        <StartButton />
         <Footer />
       </section>
     </main>

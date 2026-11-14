@@ -62,5 +62,6 @@ export function useAuth() {
     location.href = "/";
   }
 
-  return { user, ready, niche, left: Math.max(0, FREE_LIMIT - used), signOut };
+  const setLeft = (n: number) => setUsed(FREE_LIMIT - n);
+  return { user, ready, niche, left: Math.max(0, FREE_LIMIT - used), setLeft, signOut };
 }
