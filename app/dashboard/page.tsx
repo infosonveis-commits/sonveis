@@ -5,6 +5,9 @@ import Shell from "@/components/Shell";
 import AuthModal from "@/components/AuthModal";
 import Footer from "@/components/Footer";
 import { useAuth } from "@/lib/useAuth";
+import { IDEAS } from "@/lib/ideas";
+
+type Req = { kind: string; idea?: number };
 
 const BTNS = [
   { k: "post", t: "Пост", d: "3 варианта под твой бизнес" },
@@ -12,30 +15,38 @@ const BTNS = [
   { k: "threads", t: "Ветка в Threads", d: "Серия коротких постов" },
   { k: "winback", t: "Вернуть клиентов", d: "Сообщение тем, кто пропал" },
 ];
+const TITLES: Record<string, string> = {
+  post: "Посты", idea: "Идея дня", script: "Сценарий видео", threads: "Ветка в Threads", winback: "Сообщения клиентам",
+};
+const LIMIT_NOTE = 'Бесплатные генерации закончились. Нажми "Хочу тариф" в меню.';
 
 export default function Dashboard() {
   const a = useAuth();
   const [showAuth, setShowAuth] = useState(false);
   const [note, setNote] = useState("");
   const [loading, setLoading] = useState(false);
-  const [result, setResult] = useState<string[] | null>(null);
+  const [result, setResult] = useState<{ req: Req; variants: string[] } | null>(null);
   const [copied, setCopied] = useState(-1);
+  const [day, setDay] = useState<number | null>(null);
 
   useEffect(() => {
+    const n = new Date();
+    const d = Math.floor((n.getTime() - new Date(n.getFullYear(), 0, 0).getTime()) / 86400000);
+    setDay(d % IDEAS.length);
     if (new URLSearchParams(location.search).get("error"))
       setNote("Ссылка устарела или открыта в другом браузере. Нажми любую кнопку и войди заново.");
   }, []);
 
-  async function generate() {
+  async function generate(req: Req) {
     setNote(""); setLoading(true); setCopied(-1);
     try {
       const r = await fetch("/api/generate", {
-        method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ kind: "post" }),
+        method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(req),
       });
       const j = await r.json().catch(() => ({}));
-      if (r.ok) { setResult(j.variants); a.setLeft(j.left); }
+      if (r.ok) { setResult({ req, variants: j.variants }); a.setLeft(j.left); }
       else if (r.status === 401) setShowAuth(true);
-      else if (r.status === 402) { a.setLeft(0); setNote('Бесплатные генерации закончились. Нажми "Хочу тариф" в меню.'); }
+      else if (r.status === 402) { a.setLeft(0); setNote(LIMIT_NOTE); }
       else if (r.status === 422) setNote("Сначала ответь на вопросы о бизнесе.");
       else setNote("Не получилось написать. Попробуй ещё раз, генерация не потрачена.");
     } catch {
@@ -44,12 +55,11 @@ export default function Dashboard() {
     setLoading(false);
   }
 
-  function press(k: string) {
+  function press(req: Req) {
     if (!a.ready || loading) return;
     if (!a.user) return setShowAuth(true);
-    if (k !== "post") return setNote("Эта кнопка заработает на следующем этапе.");
-    if (a.left <= 0) return setNote('Бесплатные генерации закончились. Нажми "Хочу тариф" в меню.');
-    generate();
+    if (a.left <= 0) return setNote(LIMIT_NOTE);
+    generate(req);
   }
 
   async function copy(text: string, i: number) {
@@ -62,10 +72,16 @@ export default function Dashboard() {
         {result ? (
           <section>
             <button onClick={() => setResult(null)} className="text-ink/60 hover:text-ink">Назад</button>
-            <h1 className="mt-4 text-4xl font-extrabold tracking-tight">Посты</h1>
+            <h1 className="mt-4 text-4xl font-extrabold tracking-tight">{TITLES[result.req.kind]}</h1>
+            {result.req.kind === "idea" && result.req.idea !== undefined && (
+              <p className="mt-2 text-ink/60">{IDEAS[result.req.idea]}</p>
+            )}
             <div className="mt-6 space-y-4">
-              {result.map((v, i) => (
+              {result.variants.map((v, i) => (
                 <article key={i} className="rounded-[20px] bg-mist p-5">
+                  {result.req.kind === "threads" && (
+                    <p className="mb-2 text-sm font-semibold text-blue">{i + 1}/{result.variants.length}</p>
+                  )}
                   <p className="whitespace-pre-wrap leading-relaxed">{v}</p>
                   <button onClick={() => copy(v, i)} className="mt-4 h-11 rounded-[14px] bg-white px-5 font-semibold transition hover:brightness-95">
                     {copied === i ? "Скопировано" : "Копировать"}
@@ -73,7 +89,7 @@ export default function Dashboard() {
                 </article>
               ))}
             </div>
-            <button onClick={generate} disabled={loading || a.left <= 0}
+            <button onClick={() => press(result.req)} disabled={loading || a.left <= 0}
               className="mt-6 h-16 w-full rounded-[20px] bg-blue text-lg font-semibold text-white transition enabled:hover:brightness-110 disabled:opacity-40">
               {loading ? "Пишем..." : "Переделать"}
             </button>
@@ -86,14 +102,14 @@ export default function Dashboard() {
             <p className="mt-3 text-ink/60">
               {a.niche ? <>Твой бизнес: {a.niche}</> : <Link href="/start" className="text-blue underline">Расскажи о своём бизнесе</Link>}
             </p>
-            <button onClick={() => press("idea")} disabled={loading}
-              className="mt-8 flex h-28 w-full flex-col items-start justify-center rounded-[20px] bg-accent px-7 text-left text-white transition hover:brightness-105 active:scale-[0.99] disabled:opacity-60">
+            <button onClick={() => press({ kind: "idea", idea: day ?? 0 })} disabled={loading || day === null}
+              className="mt-8 flex min-h-[7rem] w-full flex-col items-start justify-center rounded-[20px] bg-accent px-7 py-4 text-left text-white transition hover:brightness-105 active:scale-[0.99] disabled:opacity-60">
               <span className="text-2xl font-extrabold">Идея дня</span>
-              <span className="mt-1 text-white/90">Новая тема каждый день</span>
+              <span className="mt-1 text-white/90">{day === null ? "Новая тема каждый день" : IDEAS[day]}</span>
             </button>
             <div className="mt-4 grid gap-4 sm:grid-cols-2">
               {BTNS.map((b) => (
-                <button key={b.k} onClick={() => press(b.k)} disabled={loading}
+                <button key={b.k} onClick={() => press({ kind: b.k })} disabled={loading}
                   className="flex h-28 flex-col items-start justify-center rounded-[20px] bg-blue px-6 text-left text-white transition hover:brightness-110 active:scale-[0.98] disabled:opacity-60">
                   <span className="text-xl font-bold">{b.t}</span>
                   <span className="mt-1 text-sm text-white/80">{b.d}</span>

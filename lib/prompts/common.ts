@@ -32,3 +32,12 @@ export const RULES = [
 export function examplesBlock(examples: string) {
   return examples.trim() ? `ПРИМЕРЫ ХОРОШЕГО ТЕКСТА\n${examples.trim()}` : "";
 }
+
+export function pick<T>(a: T[]): T {
+  return a[Math.floor(Math.random() * a.length)];
+}
+
+// Собирает системный промпт в одном порядке: роль, профиль, чёрный список, примеры, правила, формат
+export function compose(role: string, p: Profile, examples: string, format: string) {
+  return [role, profileBlock(p), BLACKLIST, examplesBlock(examples), RULES, format].filter(Boolean).join("\n\n");
+}
