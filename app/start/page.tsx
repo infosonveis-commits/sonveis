@@ -2,15 +2,7 @@
 import { useState } from "react";
 import { useRouter } from "next/navigation";
 import Logo from "@/components/Logo";
-
-type Q = { key: string; title: string; hint: string; ph?: string; choices?: string[] };
-const QS: Q[] = [
-  { key: "niche", title: "Чем ты занимаешься?", hint: "Например: кофейня, тренер по йоге, мастер маникюра", ph: "Твоя ниша" },
-  { key: "city", title: "В каком городе работаешь?", hint: "Так тексты звучат по-местному", ph: "Город" },
-  { key: "product", title: "Что ты продаёшь?", hint: "Назови 1-3 главные услуги или товара", ph: "Услуги или товары" },
-  { key: "audience", title: "Кто твои клиенты?", hint: "Например: мамы с детьми, офисные работники", ph: "Твои клиенты" },
-  { key: "tone", title: "Как ты общаешься с клиентами?", hint: "Тексты будут написаны так же", choices: ["На ты", "На вы"] },
-];
+import { QS } from "@/lib/questions";
 
 export default function Start() {
   const router = useRouter();
@@ -40,7 +32,6 @@ export default function Start() {
       <section className="flex flex-1 flex-col justify-center pb-24">
         <h1 className="text-4xl font-extrabold leading-tight tracking-tight md:text-5xl">{q.title}</h1>
         <p className="mt-3 text-ink/60">{q.hint}</p>
-
         {q.choices ? (
           <div className="mt-10 grid grid-cols-2 gap-4">
             {q.choices.map((c) => (
@@ -62,9 +53,7 @@ export default function Start() {
             </button>
           </>
         )}
-        {step > 0 && (
-          <button onClick={() => setStep(step - 1)} className="mt-6 self-start text-ink/60 hover:text-ink">Назад</button>
-        )}
+        {step > 0 && <button onClick={() => setStep(step - 1)} className="mt-6 self-start text-ink/60 hover:text-ink">Назад</button>}
       </section>
     </main>
   );

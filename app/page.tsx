@@ -1,5 +1,6 @@
 import Link from "next/link";
 import Logo from "@/components/Logo";
+import Footer from "@/components/Footer";
 
 export default function Home() {
   return (
@@ -22,6 +23,7 @@ export default function Home() {
           className="mt-10 inline-flex h-16 items-center rounded-[20px] bg-blue px-10 text-lg font-semibold text-white transition hover:brightness-110 active:scale-[0.98]">
           Начать
         </Link>
+        <Footer />
       </section>
     </main>
   );
