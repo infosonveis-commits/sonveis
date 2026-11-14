@@ -8,6 +8,11 @@ const FREE_LIMIT = 3;
 
 const json = (body: object, status = 200) => NextResponse.json(body, { status });
 
+// Провайдер ИИ настраивается переменными в Vercel (адрес, модель, ключ)
+const BASE = (process.env.AI_BASE_URL || "https://api.deepseek.com").replace(/\/$/, "");
+const MODEL = process.env.AI_MODEL || "deepseek-v4-flash";
+const KEY = process.env.AI_API_KEY || process.env.DEEPSEEK_API_KEY;
+
 export async function POST(req: Request) {
   const store = cookies();
   const supabase = createServerClient(
@@ -32,25 +37,26 @@ export async function POST(req: Request) {
 
   try {
     const { system, user: prompt } = postPrompt(profile);
-    const r = await fetch("https://api.deepseek.com/chat/completions", {
+    const r = await fetch(`${BASE}/chat/completions`, {
       method: "POST",
-      headers: { "Content-Type": "application/json", Authorization: `Bearer ${process.env.DEEPSEEK_API_KEY}` },
+      headers: { "Content-Type": "application/json", Authorization: `Bearer ${KEY}` },
       body: JSON.stringify({
-        model: process.env.DEEPSEEK_MODEL || "deepseek-v4-flash",
-        thinking: { type: "disabled" },
+        model: MODEL,
+        ...(BASE.includes("api.deepseek.com") ? { thinking: { type: "disabled" } } : {}),
         max_tokens: 1200,
         temperature: 0.9,
         messages: [{ role: "system", content: system }, { role: "user", content: prompt }],
       }),
       signal: AbortSignal.timeout(25000),
     });
-    if (!r.ok) throw new Error(`deepseek ${r.status}`);
+    if (!r.ok) throw new Error(`AI ${r.status} ${(await r.text().catch(() => "")).slice(0, 300)}`);
     const j = await r.json();
     const text: string = (j.choices?.[0]?.message?.content || "").trim();
     if (!text) throw new Error("empty");
     const variants = text.replace(/[—–]/g, "-").split(/\n\s*-{3,}\s*\n/).map((s) => s.trim()).filter(Boolean).slice(0, 3);
     return json({ variants, left: Math.max(0, FREE_LIMIT - used) });
-  } catch {
+  } catch (e) {
+    console.error("AI error:", e instanceof Error ? e.message : e);
     await supabase.rpc("refund_usage"); // ошибка ИИ не должна списывать генерацию
     return json({ error: "ai" }, 502);
   }
