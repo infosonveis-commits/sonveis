@@ -2,7 +2,13 @@ import { compose, pick, type Profile } from "./common";
 
 // 4) ВСТАВЬ СЮДА 2-3 примера хорошего сценария под нишу
 const EXAMPLES = ``;
-const ANGLES = ["полезный совет", "случай из работы", "миф и правда", "как это делается", "ответ на частый вопрос"];
+const ANGLES = [
+  "полезный совет",
+  "как выбрать",
+  "ответ на частый вопрос",
+  "частая ошибка",
+  "что важно знать новичку",
+];
 
 export function scriptPrompt(p: Profile) {
   const system = compose(
