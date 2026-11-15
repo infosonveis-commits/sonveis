@@ -31,7 +31,19 @@ const SLOP = [
   /погрузи(ть|тесь|мся)/, /ландшафт/, /более того/, /таким образом/, /подводя итог/, /резюмируя/,
   /революцион/, /трансформаци/, /раскры(ть|вать) потенциал/, /фундаментальн/, /беспрецедентн/,
 ];
-const slop = (t: string) => SLOP.filter((r) => r.test(t.toLowerCase())).length;
+// Повторяющиеся предложения тоже считаем признаком слопа
+const dupes = (t: string) => {
+  const seen = new Set<string>();
+  let n = 0;
+  for (const part of t.toLowerCase().split(/[.!?\n]+/)) {
+    const x = part.trim();
+    if (x.length < 15) continue;
+    if (seen.has(x)) n++;
+    seen.add(x);
+  }
+  return n;
+};
+const slop = (t: string) => SLOP.filter((r) => r.test(t.toLowerCase())).length + dupes(t);
 
 const clean = (v: unknown, n = 200) => (typeof v === "string" ? v.trim().slice(0, n) : "");
 
@@ -104,7 +116,7 @@ export async function POST(req: Request) {
     if (slop(text) > 0 && Date.now() - t0 < 20000) {
       try {
         const better = await call([...base, { role: "assistant", content: text },
-          { role: "user", content: "В тексте остались штампы и противопоставления вида «не X, а Y». Перепиши тот же текст прямыми простыми фразами, в том же формате и с теми же фактами." }], 30000);
+          { role: "user", content: "В тексте остались штампы, повторы предложений или противопоставления вида «не X, а Y», а также факты о бизнесе, которых нет в профиле. Перепиши тот же текст прямыми простыми фразами, в том же формате и с теми же фактами." }], 30000);
         if (slop(better) < slop(text)) text = better;
       } catch (e) { console.error("retry skipped:", e instanceof Error ? e.message : e); }
     }
