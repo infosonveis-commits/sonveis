@@ -1,16 +1,13 @@
 "use client";
 import { useState } from "react";
 import Link from "next/link";
-import type { User } from "@supabase/supabase-js";
 import Logo from "@/components/Logo";
 import WaitlistModal from "@/components/WaitlistModal";
-import { leftText } from "@/lib/useAuth";
+import { leftText } from "@/lib/useLimit";
 
 const ITEM = "rounded-[14px] px-3 py-3 text-left font-medium text-ink/80 transition hover:bg-white";
 
-export default function Shell({ user, left, onSignOut, children }: {
-  user: User | null; left: number; onSignOut: () => void; children: React.ReactNode;
-}) {
+export default function Shell({ left, children }: { left: number | null; children: React.ReactNode }) {
   const [open, setOpen] = useState(false);
   const [wait, setWait] = useState(false);
   return (
@@ -29,19 +26,13 @@ export default function Shell({ user, left, onSignOut, children }: {
           <button className={ITEM}>Контакты</button>
         </nav>
         <div className="mt-auto">
-          <p className="mb-3 text-sm text-ink/60">{leftText(left)}</p>
+          <p className="mb-3 min-h-[1.25rem] text-sm text-ink/60">{left === null ? "" : leftText(left)}</p>
           <button onClick={() => { setWait(true); setOpen(false); }} className="h-12 w-full rounded-[14px] bg-blue font-semibold text-white transition hover:brightness-110">Хочу тариф</button>
-          {user && (
-            <div className="mt-4 border-t border-ink/10 pt-4">
-              <p className="truncate text-sm text-ink/60">{user.email}</p>
-              <button onClick={onSignOut} className="mt-2 font-medium text-ink/80 hover:text-ink">Выйти</button>
-            </div>
-          )}
         </div>
       </aside>
 
       <main className="md:pl-64">{children}</main>
-      {wait && <WaitlistModal email={user?.email} onClose={() => setWait(false)} />}
+      {wait && <WaitlistModal onClose={() => setWait(false)} />}
     </div>
   );
 }

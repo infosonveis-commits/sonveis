@@ -1,11 +1,11 @@
 "use client";
 import { useEffect, useState } from "react";
 import Link from "next/link";
+import { useRouter } from "next/navigation";
 import Shell from "@/components/Shell";
-import AuthModal from "@/components/AuthModal";
 import Footer from "@/components/Footer";
-import { useAuth } from "@/lib/useAuth";
 import { IDEAS } from "@/lib/ideas";
+import { readProfile, useLimit } from "@/lib/useLimit";
 
 type Req = { kind: string; idea?: number };
 
@@ -21,8 +21,9 @@ const TITLES: Record<string, string> = {
 const LIMIT_NOTE = 'Бесплатные генерации закончились. Нажми "Хочу тариф" в меню.';
 
 export default function Dashboard() {
-  const a = useAuth();
-  const [showAuth, setShowAuth] = useState(false);
+  const router = useRouter();
+  const { left, setLeft } = useLimit();
+  const [niche, setNiche] = useState("");
   const [note, setNote] = useState("");
   const [loading, setLoading] = useState(false);
   const [result, setResult] = useState<{ req: Req; variants: string[] } | null>(null);
@@ -30,26 +31,28 @@ export default function Dashboard() {
   const [day, setDay] = useState<number | null>(null);
 
   useEffect(() => {
+    setNiche(readProfile().niche || "");
     const n = new Date();
     const d = Math.floor((n.getTime() - new Date(n.getFullYear(), 0, 0).getTime()) / 86400000);
     setDay(d % IDEAS.length);
-    if (new URLSearchParams(location.search).get("error"))
-      setNote("Ссылка устарела или открыта в другом браузере. Нажми любую кнопку и войди заново.");
   }, []);
 
   async function generate(req: Req) {
     setNote(""); setLoading(true); setCopied(-1);
     try {
       const call = () => fetch("/api/generate", {
-        method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(req),
+        method: "POST", headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ ...req, profile: readProfile() }),
       });
       let r = await call();
       if (r.status === 502) r = await call(); // сбой ИИ: одна автоматическая повторная попытка (генерация возвращается)
       const j = await r.json().catch(() => ({}));
-      if (r.ok) { setResult({ req, variants: j.variants }); a.setLeft(j.left); }
-      else if (r.status === 401) setShowAuth(true);
-      else if (r.status === 402) { a.setLeft(0); setNote(LIMIT_NOTE); }
-      else if (r.status === 422) setNote("Сначала ответь на вопросы о бизнесе.");
+      if (r.ok) { setResult({ req, variants: j.variants }); setLeft(j.left); }
+      else if (r.status === 402) { setLeft(0); setNote(LIMIT_NOTE); }
+      else if (j.error === "day") setNote("На сегодня бесплатные тексты закончились. Возвращайся завтра.");
+      else if (j.error === "ip") setNote("Слишком много запросов. Подожди час и попробуй снова.");
+      else if (j.error === "off") setNote("Генерация временно отключена. Загляни позже.");
+      else if (r.status === 422) router.push("/start");
       else setNote("Не получилось написать. Попробуй ещё раз, генерация не потрачена.");
     } catch {
       setNote("Нет связи. Попробуй ещё раз.");
@@ -58,9 +61,9 @@ export default function Dashboard() {
   }
 
   function press(req: Req) {
-    if (!a.ready || loading) return;
-    if (!a.user) return setShowAuth(true);
-    if (a.left <= 0) return setNote(LIMIT_NOTE);
+    if (loading) return;
+    if (!readProfile().niche) return router.push("/start");
+    if (left !== null && left <= 0) return setNote(LIMIT_NOTE);
     generate(req);
   }
 
@@ -69,7 +72,7 @@ export default function Dashboard() {
   }
 
   return (
-    <Shell user={a.user} left={a.left} onSignOut={a.signOut}>
+    <Shell left={left}>
       <div className="mx-auto flex min-h-screen max-w-2xl flex-col px-6 pb-10 pt-4 md:justify-center">
         {result ? (
           <section>
@@ -92,7 +95,7 @@ export default function Dashboard() {
               ))}
             </div>
             <p className="mt-6 text-sm text-ink/60">Это черновик. ИИ мог придумать детали, которых у тебя нет. Проверь текст и замени их своими.</p>
-            <button onClick={() => press(result.req)} disabled={loading || a.left <= 0}
+            <button onClick={() => press(result.req)} disabled={loading || (left !== null && left <= 0)}
               className="mt-4 h-16 w-full rounded-[20px] bg-blue text-lg font-semibold text-white transition enabled:hover:brightness-110 disabled:opacity-40">
               {loading ? "Пишем..." : "Переделать"}
             </button>
@@ -103,7 +106,7 @@ export default function Dashboard() {
           <>
             <h1 className="text-4xl font-extrabold tracking-tight md:text-5xl">Что делаем сегодня?</h1>
             <p className="mt-3 text-ink/60">
-              {a.niche ? <>Твой бизнес: {a.niche}</> : <Link href="/start" className="text-blue underline">Расскажи о своём бизнесе</Link>}
+              {niche ? <>Твой бизнес: {niche}</> : <Link href="/start" className="text-blue underline">Расскажи о своём бизнесе</Link>}
             </p>
             <button onClick={() => press({ kind: "idea", idea: day ?? 0 })} disabled={loading || day === null}
               className="mt-8 flex min-h-[7rem] w-full flex-col items-start justify-center rounded-[20px] bg-accent px-7 py-4 text-left text-white transition hover:brightness-105 active:scale-[0.99] disabled:opacity-60">
@@ -125,7 +128,6 @@ export default function Dashboard() {
         )}
         <Footer />
       </div>
-      {showAuth && <AuthModal onClose={() => setShowAuth(false)} />}
     </Shell>
   );
 }

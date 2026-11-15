@@ -1,0 +1,75 @@
+"use client";
+import { useState } from "react";
+import { sb } from "@/lib/supabase";
+
+export default function AuthModal({ onClose }: { onClose: () => void }) {
+  const [email, setEmail] = useState("");
+  const [c1, setC1] = useState(false);
+  const [c2, setC2] = useState(false);
+  const [code, setCode] = useState("");
+  const [step, setStep] = useState<"email" | "code">("email");
+  const [busy, setBusy] = useState(false);
+  const [err, setErr] = useState("");
+  const emailOk = /^\S+@\S+\.\S+$/.test(email.trim()) && c1 && c2 && !busy;
+
+  // Шаг 1: отправляем код на почту (без ссылки, так работает на любом устройстве)
+  async function send() {
+    setBusy(true); setErr("");
+    try { localStorage.setItem("sonveis_consent_at", new Date().toISOString()); } catch {}
+    const { error } = await sb().auth.signInWithOtp({ email: email.trim() });
+    setBusy(false);
+    if (error) setErr("Не получилось отправить письмо. Подожди минуту и попробуй снова.");
+    else setStep("code");
+  }
+
+  // Шаг 2: проверяем код, который человек ввёл
+  async function verify() {
+    setBusy(true); setErr("");
+    const { error } = await sb().auth.verifyOtp({ email: email.trim(), token: code.replace(/\s/g, ""), type: "email" });
+    if (error) { setBusy(false); setErr("Код неверный или устарел. Проверь письмо или запроси новый."); return; }
+    location.reload(); // после входа страница загрузит профиль и перенесёт ответы в базу
+  }
+
+  const link = "text-blue underline";
+  return (
+    <div className="fixed inset-0 z-[60] flex items-end justify-center bg-ink/40 p-4 sm:items-center" onClick={onClose}>
+      <div className="w-full max-w-md rounded-[20px] bg-white p-6 shadow-xl" onClick={(e) => e.stopPropagation()}>
+        {step === "code" ? (
+          <>
+            <h2 className="text-2xl font-extrabold tracking-tight">Введи код из письма</h2>
+            <p className="mt-2 text-ink/70">Мы отправили код на {email.trim()}. Письмо может прийти до минуты, проверь и папку "Спам".</p>
+            <input value={code} onChange={(e) => setCode(e.target.value)} autoFocus inputMode="numeric" autoComplete="one-time-code"
+              maxLength={12} placeholder="Код"
+              className="mt-5 h-16 w-full rounded-[20px] border-2 border-mist px-5 text-center text-2xl font-bold tracking-[0.3em] outline-none focus:border-blue" />
+            {err && <p className="mt-4 text-sm text-red-600" role="alert">{err}</p>}
+            <button onClick={verify} disabled={code.replace(/\s/g, "").length < 6 || busy}
+              className="mt-5 h-14 w-full rounded-[20px] bg-blue text-lg font-semibold text-white transition enabled:hover:brightness-110 disabled:opacity-30">
+              {busy ? "Проверяем..." : "Войти"}
+            </button>
+            <button onClick={() => { setStep("email"); setCode(""); setErr(""); }} className="mt-4 text-ink/60 hover:text-ink">Назад, изменить почту или отправить код снова</button>
+          </>
+        ) : (
+          <>
+            <h2 className="text-2xl font-extrabold tracking-tight">Сохрани результат</h2>
+            <p className="mt-2 text-ink/70">Введи почту, мы пришлём код для входа. Пароль не нужен.</p>
+            <input type="email" autoFocus value={email} onChange={(e) => setEmail(e.target.value)} placeholder="Твоя почта"
+              className="mt-5 h-14 w-full rounded-[20px] border-2 border-mist px-5 text-lg outline-none focus:border-blue" />
+            <label className="mt-5 flex items-start gap-3">
+              <input type="checkbox" checked={c1} onChange={(e) => setC1(e.target.checked)} className="mt-1 h-5 w-5 accent-blue" />
+              <span className="text-sm text-ink/80">Согласен с <a href="/privacy" target="_blank" className={link}>Политикой конфиденциальности</a></span>
+            </label>
+            <label className="mt-3 flex items-start gap-3">
+              <input type="checkbox" checked={c2} onChange={(e) => setC2(e.target.checked)} className="mt-1 h-5 w-5 accent-blue" />
+              <span className="text-sm text-ink/80">Согласен с <a href="/terms" target="_blank" className={link}>Условиями использования</a></span>
+            </label>
+            {err && <p className="mt-4 text-sm text-red-600" role="alert">{err}</p>}
+            <button onClick={send} disabled={!emailOk}
+              className="mt-6 h-14 w-full rounded-[20px] bg-blue text-lg font-semibold text-white transition enabled:hover:brightness-110 disabled:opacity-30">
+              {busy ? "Отправляем..." : "Получить код"}
+            </button>
+          </>
+        )}
+      </div>
+    </div>
+  );
+}

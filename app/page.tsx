@@ -20,6 +20,7 @@ export default function Home() {
           Ответь на 5 коротких вопросов. Получай тексты, которые звучат как ты, а не как робот.
         </p>
         <StartButton />
+        <p className="mt-4 max-w-sm text-sm text-ink/50">Нажимая «Начать», ты принимаешь <a href="/terms" className="underline">Условия использования</a> и <a href="/privacy" className="underline">Политику конфиденциальности</a>.</p>
         <Footer />
       </section>
     </main>

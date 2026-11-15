@@ -2,8 +2,8 @@
 import { useState } from "react";
 import { sb } from "@/lib/supabase";
 
-export default function WaitlistModal({ email: initial, onClose }: { email?: string | null; onClose: () => void }) {
-  const [email, setEmail] = useState(initial || "");
+export default function WaitlistModal({ onClose }: { onClose: () => void }) {
+  const [email, setEmail] = useState("");
   const [agree, setAgree] = useState(false);
   const [state, setState] = useState<"idle" | "loading" | "done" | "error">("idle");
   const ok = /^\S+@\S+\.\S+$/.test(email.trim()) && agree && state !== "loading";
@@ -32,7 +32,7 @@ export default function WaitlistModal({ email: initial, onClose }: { email?: str
               className="mt-5 h-14 w-full rounded-[20px] border-2 border-mist px-5 text-lg outline-none focus:border-blue" />
             <label className="mt-5 flex items-start gap-3">
               <input type="checkbox" checked={agree} onChange={(e) => setAgree(e.target.checked)} className="mt-1 h-5 w-5 accent-blue" />
-              <span className="text-sm text-ink/80">Согласен получить одно сообщение о тарифе и с <a href="/privacy" target="_blank" className="text-blue underline">Политикой конфиденциальности</a></span>
+              <span className="text-sm text-ink/80">Даю <a href="/consent" target="_blank" className="text-blue underline">согласие на обработку почты</a> для одного сообщения о тарифе. <a href="/privacy" target="_blank" className="text-blue underline">Политика конфиденциальности</a></span>
             </label>
             {state === "error" && <p className="mt-4 text-sm text-red-600" role="alert">Не получилось записать. Попробуй ещё раз.</p>}
             <button onClick={send} disabled={!ok}

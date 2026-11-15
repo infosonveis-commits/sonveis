@@ -1,7 +1,6 @@
 import { NextResponse } from "next/server";
-import { cookies } from "next/headers";
-import { createServerClient } from "@supabase/ssr";
 import { IDEAS } from "@/lib/ideas";
+import { DAY_CAP, FREE, IP_CAP, admin, who, withCookie } from "@/lib/server-limit";
 import type { Profile } from "@/lib/prompts/common";
 import { postPrompt } from "@/lib/prompts/post";
 import { ideaPrompt } from "@/lib/prompts/idea";
@@ -10,9 +9,6 @@ import { threadsPrompt } from "@/lib/prompts/threads";
 import { winbackPrompt } from "@/lib/prompts/winback";
 
 export const maxDuration = 60;
-const FREE_LIMIT = 3;
-
-const json = (body: object, status = 200) => NextResponse.json(body, { status });
 
 // Провайдер ИИ настраивается переменными в Vercel (адрес, модель, ключ)
 const BASE = (process.env.AI_BASE_URL || "https://api.deepseek.com").replace(/\/$/, "");
@@ -28,43 +24,46 @@ const KINDS: Record<string, { split: boolean; max: number; tokens: number }> = {
   winback: { split: true, max: 3, tokens: 1500 },
 };
 
-export async function POST(req: Request) {
-  const store = cookies();
-  const supabase = createServerClient(
-    process.env.NEXT_PUBLIC_SUPABASE_URL!,
-    process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
-    { cookies: { getAll: () => store.getAll(), setAll: () => {} } }
-  );
+const clean = (v: unknown) => (typeof v === "string" ? v.trim().slice(0, 200) : "");
 
-  const { data: { user } } = await supabase.auth.getUser();
-  if (!user) return json({ error: "auth" }, 401);
+export async function POST(req: Request) {
+  const w = who();
+  const reply = (body: object, status = 200) => withCookie(NextResponse.json(body, { status }), w);
 
   const body = await req.json().catch(() => ({}));
-  const kind: string = body.kind;
-  const cfg = KINDS[kind];
-  if (!cfg) return json({ error: "kind" }, 400);
-  if (kind === "idea" && !(Number.isInteger(body.idea) && body.idea >= 0 && body.idea < IDEAS.length))
-    return json({ error: "kind" }, 400);
+  const cfg = KINDS[body.kind];
+  if (!cfg) return reply({ error: "kind" }, 400);
+  if (body.kind === "idea" && !(Number.isInteger(body.idea) && body.idea >= 0 && body.idea < IDEAS.length))
+    return reply({ error: "kind" }, 400);
 
-  const { data: profile } = await supabase
-    .from("profiles").select("niche,city,product,audience,tone").eq("user_id", user.id).maybeSingle();
-  if (!profile?.niche) return json({ error: "profile" }, 422);
+  const pr = body.profile || {};
+  const profile: Profile = {
+    niche: clean(pr.niche), city: clean(pr.city), product: clean(pr.product),
+    audience: clean(pr.audience), tone: pr.tone === "На вы" ? "На вы" : "На ты",
+  };
+  if (!profile.niche) return reply({ error: "profile" }, 422);
 
-  // Проверка лимита на сервере: счётчик растёт только если лимит не исчерпан
-  const { data: used } = await supabase.rpc("increment_usage");
-  if (used === null || used === undefined) return json({ error: "limit" }, 402);
+  // Проверка лимитов на сервере: свой лимит браузера, потолок сайта в сутки, лимит IP в час
+  const db = admin();
+  const { data: took, error: limErr } = await db.rpc("take_generation", {
+    p_browser: w.id, p_ip: w.ipHash, p_free: FREE, p_day_cap: DAY_CAP, p_ip_cap: IP_CAP,
+  });
+  if (limErr || typeof took !== "string") { console.error("limit error:", limErr?.message); return reply({ error: "ai" }, 502); }
+  if (took === "limit") return reply({ error: "limit" }, 402);
+  if (took === "day") return reply({ error: "day" }, 429);
+  if (took === "ip") return reply({ error: "ip" }, 429);
+  if (took === "off") return reply({ error: "off" }, 503);
+  const left = Math.max(0, parseInt(took.split(":")[1] || "0", 10));
 
   try {
-    const p = profile as Profile;
     const { system, user: prompt } =
-      kind === "post" ? postPrompt(p)
-      : kind === "idea" ? ideaPrompt(p, IDEAS[body.idea])
-      : kind === "script" ? scriptPrompt(p)
-      : kind === "threads" ? threadsPrompt(p)
-      : winbackPrompt(p);
+      body.kind === "post" ? postPrompt(profile)
+      : body.kind === "idea" ? ideaPrompt(profile, IDEAS[body.idea])
+      : body.kind === "script" ? scriptPrompt(profile)
+      : body.kind === "threads" ? threadsPrompt(profile)
+      : winbackPrompt(profile);
 
-    // Просим модель не "размышлять" (иначе размышления съедают лимит и ответ обрывается).
-    // Если провайдер не знает этих параметров (ошибка 400/422), повторяем без них.
+    // Просим модель не "размышлять"; если провайдер не знает параметров (400/422), повторяем без них
     const ask = (hints: boolean) => fetch(`${BASE}/chat/completions`, {
       method: "POST",
       headers: { "Content-Type": "application/json", Authorization: `Bearer ${KEY}` },
@@ -89,10 +88,10 @@ export async function POST(req: Request) {
     const variants = cfg.split
       ? text.split(/\n\s*-{3,}\s*\n/).map((s) => s.trim()).filter(Boolean).slice(0, cfg.max)
       : [text];
-    return json({ variants, left: Math.max(0, FREE_LIMIT - used) });
+    return reply({ variants, left });
   } catch (e) {
     console.error("AI error:", e instanceof Error ? e.message : e);
-    await supabase.rpc("refund_usage"); // ошибка ИИ не должна списывать генерацию
-    return json({ error: "ai" }, 502);
+    await db.rpc("refund_generation", { p_browser: w.id, p_ip: w.ipHash }); // сбой ИИ не списывает генерацию
+    return reply({ error: "ai" }, 502);
   }
 }

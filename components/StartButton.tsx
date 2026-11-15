@@ -1,17 +1,15 @@
 "use client";
 import { useEffect, useState } from "react";
 import Link from "next/link";
-import { sb } from "@/lib/supabase";
+import { readProfile } from "@/lib/useLimit";
 
 export default function StartButton() {
-  const [signed, setSigned] = useState(false);
-  useEffect(() => {
-    sb().auth.getSession().then(({ data }) => setSigned(!!data.session));
-  }, []);
+  const [has, setHas] = useState(false);
+  useEffect(() => { setHas(!!readProfile().niche); }, []);
   return (
-    <Link href={signed ? "/dashboard" : "/start"}
+    <Link href={has ? "/dashboard" : "/start"}
       className="mt-10 inline-flex h-16 items-center rounded-[20px] bg-blue px-10 text-lg font-semibold text-white transition hover:brightness-110 active:scale-[0.98]">
-      {signed ? "Открыть" : "Начать"}
+      {has ? "Открыть" : "Начать"}
     </Link>
   );
 }

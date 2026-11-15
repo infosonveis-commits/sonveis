@@ -1,17 +1,13 @@
 "use client";
-import { useEffect, useState } from "react";
+import { useState } from "react";
 import { useRouter } from "next/navigation";
 import Logo from "@/components/Logo";
 import { QS } from "@/lib/questions";
-import { sb } from "@/lib/supabase";
 
 export default function Start() {
   const router = useRouter();
   const [step, setStep] = useState(0);
   const [a, setA] = useState<Record<string, string>>({});
-  useEffect(() => {
-    sb().auth.getSession().then(({ data }) => { if (data.session) router.replace("/dashboard"); });
-  }, [router]);
   const q = QS[step];
   const value = a[q.key] || "";
 
