@@ -5,3 +5,9 @@ export const LEGAL = {
   email: "info.sonveis@gmail.com",
   telegram: "https://t.me/getsonveis?direct",
 };
+
+export const SOCIAL = {
+  telegram: "https://t.me/getsonveis",
+  instagram: "https://www.instagram.com/sonveis",
+  tiktok: "https://www.tiktok.com/@sonveis",
+};
