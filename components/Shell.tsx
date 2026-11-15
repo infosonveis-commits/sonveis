@@ -22,8 +22,8 @@ export default function Shell({ left, children }: { left: number | null; childre
         <nav className="mt-8 flex flex-col gap-1">
           <Link href="/profile" className={ITEM}>Профиль бизнеса</Link>
           <button onClick={() => { setWait(true); setOpen(false); }} className={ITEM}>Тариф</button>
-          <button className={ITEM}>О проекте</button>
-          <button className={ITEM}>Контакты</button>
+          <Link href="/about" className={ITEM}>О проекте</Link>
+          <Link href="/contacts" className={ITEM}>Контакты</Link>
         </nav>
         <div className="mt-auto">
           <p className="mb-3 min-h-[1.25rem] text-sm text-ink/60">{left === null ? "" : leftText(left)}</p>

@@ -25,7 +25,7 @@ export default function Profile() {
         <div className="mt-8 space-y-6">
           {QS.map((q) => (
             <div key={q.key}>
-              <label className="font-semibold">{q.title}</label>
+              <label className="font-semibold">{q.title}{q.optional && <span className="font-normal text-ink/50"> (необязательно)</span>}</label>
               {q.choices ? (
                 <div className="mt-2 grid grid-cols-2 gap-3">
                   {q.choices.map((c) => (

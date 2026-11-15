@@ -45,11 +45,11 @@ export default function Start() {
           <>
             <input key={q.key} autoFocus value={value} placeholder={q.ph}
               onChange={(e) => setA({ ...a, [q.key]: e.target.value })}
-              onKeyDown={(e) => { if (e.key === "Enter" && value.trim()) next(); }}
+              onKeyDown={(e) => { if (e.key === "Enter" && (value.trim() || q.optional)) next(); }}
               className="mt-10 h-16 w-full rounded-[20px] border-2 border-mist bg-white px-5 text-lg outline-none focus:border-blue" />
-            <button onClick={() => next()} disabled={!value.trim()}
+            <button onClick={() => next()} disabled={!value.trim() && !q.optional}
               className="mt-4 h-16 w-full rounded-[20px] bg-blue text-lg font-semibold text-white transition enabled:hover:brightness-110 enabled:active:scale-[0.98] disabled:opacity-30">
-              Дальше
+              {q.optional && !value.trim() ? "Пропустить" : "Дальше"}
             </button>
           </>
         )}

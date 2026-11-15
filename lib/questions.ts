@@ -1,9 +1,10 @@
-export type Q = { key: string; title: string; hint: string; ph?: string; choices?: string[] };
+export type Q = { key: string; title: string; hint: string; ph?: string; choices?: string[]; optional?: boolean };
 
 export const QS: Q[] = [
   { key: "niche", title: "Чем ты занимаешься?", hint: "Например: кофейня, тренер по йоге, мастер маникюра", ph: "Твоя ниша" },
   { key: "city", title: "В каком городе работаешь?", hint: "Так тексты звучат по-местному", ph: "Город" },
   { key: "product", title: "Что ты продаёшь?", hint: "Назови 1-3 главные услуги или товара", ph: "Услуги или товары" },
   { key: "audience", title: "Кто твои клиенты?", hint: "Например: мамы с детьми, офисные работники", ph: "Твои клиенты" },
+  { key: "details", title: "Что важно знать о твоём бизнесе?", hint: "Необязательно. Особенности, которые ИИ не должен упускать или придумывать: например, работаем только по записи, нет доставки, есть детская зона", ph: "Особенности (можно пропустить)", optional: true },
   { key: "tone", title: "Как ты общаешься с клиентами?", hint: "Тексты будут написаны так же", choices: ["На ты", "На вы"] },
 ];

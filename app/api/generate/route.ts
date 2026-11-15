@@ -24,7 +24,7 @@ const KINDS: Record<string, { split: boolean; max: number; tokens: number }> = {
   winback: { split: true, max: 3, tokens: 1500 },
 };
 
-const clean = (v: unknown) => (typeof v === "string" ? v.trim().slice(0, 200) : "");
+const clean = (v: unknown, n = 200) => (typeof v === "string" ? v.trim().slice(0, n) : "");
 
 export async function POST(req: Request) {
   const w = who();
@@ -39,7 +39,7 @@ export async function POST(req: Request) {
   const pr = body.profile || {};
   const profile: Profile = {
     niche: clean(pr.niche), city: clean(pr.city), product: clean(pr.product),
-    audience: clean(pr.audience), tone: pr.tone === "На вы" ? "На вы" : "На ты",
+    audience: clean(pr.audience), details: clean(pr.details, 400), tone: pr.tone === "На вы" ? "На вы" : "На ты",
   };
   if (!profile.niche) return reply({ error: "profile" }, 422);
 
