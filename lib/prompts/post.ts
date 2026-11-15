@@ -1,4 +1,4 @@
-import { BLACKLIST, RULES, examplesBlock, profileBlock, type Profile } from "./common";
+import { BLACKLIST, DEFAULT_POST_EXAMPLES, RULES, examplesBlock, profileBlock, type Profile } from "./common";
 
 // 4) ВСТАВЬ СЮДА 2-3 примера хорошего поста под нишу (между кавычками-обратными апострофами).
 // Пока пусто, блок с примерами просто не добавляется в промпт.
@@ -20,7 +20,7 @@ export function postPrompt(p: Profile) {
     "Ты пишешь посты для соцсетей от лица владельца микробизнеса. Это живая речь человека, не реклама и не штамп.",
     profileBlock(p),
     BLACKLIST,
-    examplesBlock(EXAMPLES),
+    examplesBlock(EXAMPLES || DEFAULT_POST_EXAMPLES),
     RULES,
     "ФОРМАТ ОТВЕТА\nДай ровно 3 разных варианта поста. Разделяй их отдельной строкой ---. Без заголовков, нумерации и пояснений.",
   ].filter(Boolean).join("\n\n");

@@ -24,6 +24,15 @@ const KINDS: Record<string, { split: boolean; max: number; tokens: number }> = {
   winback: { split: true, max: 3, tokens: 1500 },
 };
 
+// Признаки нейрослопа: сколько штампов в тексте
+const SLOP = [
+  /не просто\b/, /дело не в\b/, /не о [^,.\n]{1,40}, а о\b/, /\bне\s[^.!?\n]{1,35}[,;]\sа\s/,
+  /как есть\b/, /честно говоря/, /скажу честно/, /звучит странно/, /в современном мире/,
+  /погрузи(ть|тесь|мся)/, /ландшафт/, /более того/, /таким образом/, /подводя итог/, /резюмируя/,
+  /революцион/, /трансформаци/, /раскры(ть|вать) потенциал/, /фундаментальн/, /беспрецедентн/,
+];
+const slop = (t: string) => SLOP.filter((r) => r.test(t.toLowerCase())).length;
+
 const clean = (v: unknown, n = 200) => (typeof v === "string" ? v.trim().slice(0, n) : "");
 
 export async function POST(req: Request) {
@@ -63,28 +72,42 @@ export async function POST(req: Request) {
       : body.kind === "threads" ? threadsPrompt(profile)
       : winbackPrompt(profile);
 
-    // Просим модель не "размышлять"; если провайдер не знает параметров (400/422), повторяем без них
-    const ask = (hints: boolean) => fetch(`${BASE}/chat/completions`, {
-      method: "POST",
-      headers: { "Content-Type": "application/json", Authorization: `Bearer ${KEY}` },
-      body: JSON.stringify({
-        model: MODEL,
-        ...(hints ? { thinking: { type: "disabled" }, reasoning_effort: "none" } : {}),
-        max_tokens: cfg.tokens,
-        temperature: 0.9,
-        messages: [{ role: "system", content: system }, { role: "user", content: prompt }],
-      }),
-      signal: AbortSignal.timeout(50000),
-    });
-    let r = await ask(true);
-    if (r.status === 400 || r.status === 422) r = await ask(false);
-    if (!r.ok) throw new Error(`AI ${r.status} ${(await r.text().catch(() => "")).slice(0, 300)}`);
-    const j = await r.json();
-    const choice = j.choices?.[0];
-    console.log("AI ok:", choice?.finish_reason, JSON.stringify(j.usage));
-    if (choice?.finish_reason === "length") throw new Error("cut: ответ обрезан по лимиту");
-    const text: string = (choice?.message?.content || "").trim().replace(/[—–]/g, "-");
-    if (!text) throw new Error("empty");
+    const t0 = Date.now();
+    const call = async (msgs: { role: string; content: string }[], timeout: number) => {
+      // Просим модель не "размышлять"; если провайдер не знает параметров (400/422), повторяем без них
+      const ask = (hints: boolean) => fetch(`${BASE}/chat/completions`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json", Authorization: `Bearer ${KEY}` },
+        body: JSON.stringify({
+          model: MODEL,
+          ...(hints ? { thinking: { type: "disabled" }, reasoning_effort: "none" } : {}),
+          max_tokens: cfg.tokens,
+          temperature: 0.7,
+          messages: msgs,
+        }),
+        signal: AbortSignal.timeout(timeout),
+      });
+      let r = await ask(true);
+      if (r.status === 400 || r.status === 422) r = await ask(false);
+      if (!r.ok) throw new Error(`AI ${r.status} ${(await r.text().catch(() => "")).slice(0, 300)}`);
+      const j = await r.json();
+      const choice = j.choices?.[0];
+      console.log("AI ok:", choice?.finish_reason, JSON.stringify(j.usage));
+      if (choice?.finish_reason === "length") throw new Error("cut: ответ обрезан по лимиту");
+      const out: string = (choice?.message?.content || "").trim().replace(/[—–]/g, "-");
+      if (!out) throw new Error("empty");
+      return out;
+    };
+    const base = [{ role: "system", content: system }, { role: "user", content: prompt }];
+    let text = await call(base, 40000);
+    // Если в тексте остались типичные штампы, просим один раз переписать (расход наш, не пользователя)
+    if (slop(text) > 0 && Date.now() - t0 < 20000) {
+      try {
+        const better = await call([...base, { role: "assistant", content: text },
+          { role: "user", content: "В тексте остались штампы и противопоставления вида «не X, а Y». Перепиши тот же текст прямыми простыми фразами, в том же формате и с теми же фактами." }], 30000);
+        if (slop(better) < slop(text)) text = better;
+      } catch (e) { console.error("retry skipped:", e instanceof Error ? e.message : e); }
+    }
     const variants = cfg.split
       ? text.split(/\n\s*-{3,}\s*\n/).map((s) => s.trim()).filter(Boolean).slice(0, cfg.max)
       : [text];
