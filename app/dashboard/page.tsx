@@ -18,7 +18,7 @@ const BTNS = [
 const TITLES: Record<string, string> = {
   post: "Посты", idea: "Идея дня", script: "Сценарий видео", threads: "Ветка в Threads", winback: "Сообщения клиентам",
 };
-const LIMIT_NOTE = 'Бесплатные генерации закончились. Нажми "Хочу тариф" в меню.';
+const LIMIT_NOTE = 'На сегодня бесплатные генерации закончились. Возвращайся завтра или нажми "Хочу тариф" в меню.';
 
 export default function Dashboard() {
   const router = useRouter();
@@ -99,7 +99,7 @@ export default function Dashboard() {
               className="mt-4 h-16 w-full rounded-[20px] bg-blue text-lg font-semibold text-white transition enabled:hover:brightness-110 disabled:opacity-40">
               {loading ? "Пишем..." : "Переделать"}
             </button>
-            <p className="mt-3 text-sm text-ink/50">Каждая генерация списывается из бесплатных.</p>
+            <p className="mt-3 text-sm text-ink/50">Каждая генерация списывается из дневного лимита.</p>
             {note && <p className="mt-4 text-ink/60" role="status">{note}</p>}
           </section>
         ) : (

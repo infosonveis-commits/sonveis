@@ -2,9 +2,9 @@
 import { useEffect, useState } from "react";
 
 export function leftText(n: number) {
-  if (n === 1) return "Осталась 1 бесплатная генерация";
-  if (n >= 2 && n <= 4) return `Осталось ${n} бесплатных генерации`;
-  return `Осталось ${n} бесплатных генераций`;
+  if (n === 1) return "Осталась 1 бесплатная генерация на сегодня";
+  if (n >= 2 && n <= 4) return `Осталось ${n} бесплатных генерации на сегодня`;
+  return `Осталось ${n} бесплатных генераций на сегодня`;
 }
 
 export function readProfile(): Record<string, string> {
